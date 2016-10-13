@@ -53,7 +53,7 @@ def parse_html(url):
         price_now = int(''.join(rs.split(' ')[1].split(',')))
     except Exception, e:
         log('Error: %s' % e)  # 如果出现错误会记录错误日志
-        price_now = 99999999  # 如果程序出错就设定一个最大价格
+        # price_now = 99999999  # 如果程序出错就设定一个最大价格
     return price_now
 
 
