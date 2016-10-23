@@ -88,13 +88,23 @@ if __name__ == '__main__':
     if not ((start in page_source) & (end in page_source)):
         raise Exception('The number of pages is out of range.')
 
+    # store article title
+    t = []
     print '-' * 10 + ' start ' + '-' * 10
     for page in range(int(start), int(end) + 1):
         article_source = get_every_article_link(page_source[str(page)])
         for article_title, article_link in article_source:
             plain = extractor_txt(article_link)
             with open(article_title + '.txt', 'w') as f:
+                t.append(article_title)
                 print 'Saving {0}....'.format(article_title.encode('utf-8'))
                 f.write(plain.encode('utf-8'))
     print '-' * 10 + ' end  ' + '-' * 10
+
+    # check repeat if repeat store in repeat.txt
+    for index, i in enumerate(t):
+        if i in t[index + 1:]:
+            with open('repeat.txt', 'a') as f:
+                f.write(i + os.linesep)
+
     print 'Every file saved in VOA_Artical folder'
