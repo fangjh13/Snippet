@@ -1,9 +1,28 @@
 # -*- coding: utf-8 -*-
+
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
-class CaseNoPathExist(object):
+class BaseCase(object):
+    def file_handler(self, handler, path, model='r'):
+        try:
+            with open(path, model) as f:
+                content = f.read()
+                if not isinstance(content, bytes):
+                    content = content.encode('utf-8')
+                handler.send_content(content)
+        except IOError as e:
+            raise ServerException(e)
+
+    # must method test and act
+    def test(self, handler):
+        assert False, 'Not implemented.'
+
+    def act(self, handler):
+        assert False, 'Not implemented.'
+
+class CaseNoPathExist(BaseCase):
     def test(self, handler):
         """
 
@@ -16,7 +35,7 @@ class CaseNoPathExist(object):
         raise ServerException(message)
 
 
-class CaseNotFile(object):
+class CaseNotFile(BaseCase):
     def test(self, handler):
         return not os.path.isfile(handler.full_path)
 
@@ -25,30 +44,26 @@ class CaseNotFile(object):
         raise ServerException(message)
 
 
-class CaseStaticFile(object):
+class CaseStaticFile(BaseCase):
     def test(self, handler):
         return os.path.isfile(handler.full_path) and \
                handler.full_path.endswith('.html')
 
     def act(self, handler):
-        try:
-            with open(handler.full_path, 'rb') as f:
-                handler.send_content(f.read())
-        except IOError as e:
-            raise ServerException(e)
+        self.file_handler(handler, handler.full_path, 'rb')
 
 
-class CaseRootDir(object):
+class CaseRootDir(BaseCase):
     def test(self, handler):
         return handler.path == '/' and 'index.html' in \
                                        os.listdir(os.path.abspath(os.path.dirname(__name__)))
 
     def act(self, handler):
-        with open(os.path.join(handler.full_path, 'index.html'), 'rb') as f:
-            handler.send_content(f.read())
+        path = os.path.join(handler.full_path, 'index.html')
+        self.file_handler(handler, path, 'rb')
 
 
-class CaseCGIFile(object):
+class CaseCGIFile(BaseCase):
     def test(self, handler):
         return handler.full_path.endswith('.py')
 
@@ -60,24 +75,10 @@ class CaseCGIFile(object):
 
 
 class RequestHandler(BaseHTTPRequestHandler):
-    page = '''\
-        <html>
-        <body>
-        <table>
-        <tr>  <td>Header</td>         <td>Value</td>          </tr>
-        <tr>  <td>Date and time</td>  <td>{date_time}</td>    </tr>
-        <tr>  <td>Client host</td>    <td>{client_host}</td>  </tr>
-        <tr>  <td>Client port</td>    <td>{client_port}</td> </tr>
-        <tr>  <td>Command</td>        <td>{command}</td>      </tr>
-        <tr>  <td>Path</td>           <td>{path}</td>         </tr>
-        </table>
-        </body>
-        </html>\
-    '''
 
     # Note the sort
     request_cases = [
-        CaseRootDir(),        # first codition
+        CaseRootDir(),        # first condition
         CaseNoPathExist(),
         CaseNotFile(),
         CaseCGIFile(),
@@ -91,20 +92,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             file_name = self.path.lstrip('/').replace('/', '\\')
             self.full_path = os.path.join(basedir, file_name)
 
-            # if not os.path.exists(full_path):
-            #     message = '{0} not found'.format(full_path)
-            #     raise ServerException(message)
-            # elif not os.path.isfile(full_path):
-            #     message = '{0} not a file'.format(full_path)
-            #     raise ServerException(message)
-            #
-            # try:
-            #     with open(full_path, 'rb') as f:
-            #         content = f.read()
-            #         self.send_content(content)
-            # except Exception as e:
-            #     raise ServerException(e)
-
             for case in self.request_cases:
                 if case.test(self):
                     case.act(self)
@@ -113,16 +100,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.handle_error(e)
 
-    # def create_page(self):
-    #     values = {
-    #         'date_time': self.date_time_string(),
-    #         'client_host': self.client_address[0],
-    #         'client_port': self.client_address[1],
-    #         'command': self.command,
-    #         'path': self.path
-    #     }
-    #     page = self.page.format(**values).encode("utf-8")
-    #     return page
 
     def handle_error(self, e):
         page = '''\
