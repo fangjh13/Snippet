@@ -8,3 +8,4 @@
 * `generate_hmac_sha1` generate HMAC-SHA1 with Python3
 * `parser-zongs`从两张**xlsx**表中提取数据分析 公司每天需要手动统计其实就是为了投懒
 * `pretty_github` 刷绿github的contributions，门面东西
+* `binary` 手动实现整数或小数转二进制算法
