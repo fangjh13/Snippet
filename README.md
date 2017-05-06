@@ -9,4 +9,5 @@
 * `parser-zongs`从两张**xlsx**表中提取数据分析 公司每天需要手动统计其实就是为了投懒
 * `pretty_github` 刷绿github的contributions，门面东西
 * `binary` 手动实现整数或小数转二进制算法
-* `Bisection Algorithm` 二分查找算法 
+* `Bisection Algorithm` 二分查找算法求平方根
+* `Newton-Raphson-Algorithm`牛顿拉弗森算法求平方根 
