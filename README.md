@@ -13,3 +13,4 @@
 * `Bisection Algorithm` 二分查找算法求平方根
 * `Newton-Raphson-Algorithm`牛顿拉弗森算法求平方根 
 * `Recursion-divide-and-conquer`递归 判断是否是回文（分而治之)
+* `checksum` 哈希验证`sha256`摘要，验证文件完整性，运行`python3 check.py <file_path>`
