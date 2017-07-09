@@ -1,7 +1,5 @@
 ### 脚本与练习
 
------
-
 * `Amazon_inspect` 监视某日亚商品价格
 * `VOA` 抓取VOA的听力文档
 * `web-server`web练习，[实验楼](https://www.shiyanlou.com/courses/552/labs/1867/document)   [500 lines or less](http://www.aosabook.org/en/500L/a-simple-web-server.html)
@@ -9,7 +7,9 @@
 * `parser-zongs`从两张**xlsx**表中提取数据分析 公司每天需要手动统计其实就是为了偷懒
 * `MarkDownReference` markdown语法
 * `pretty_github` 刷绿github的contributions，门面东西
-* `binary` 手动实现整数或小数转二进制算法
++ `binary`
+  - `float2bin`手动实现整数或小数转二进制算法
+  - `intToStr`整数转字符串
 * `Bisection Algorithm` 二分查找算法求平方根
 * `Newton-Raphson-Algorithm`牛顿拉弗森算法求平方根 
 * `Recursion-divide-and-conquer`递归 判断是否是回文（分而治之)
