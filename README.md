@@ -11,8 +11,10 @@
   - `float2bin`手动实现整数或小数转二进制算法
   - `intToStr`整数转字符串
 * `Bisection Algorithm` 二分查找算法求平方根
-* `Newton-Raphson-Algorithm`牛顿拉弗森算法求平方根 
-* `Recursion-divide-and-conquer`递归 判断是否是回文（分而治之)
+* `Newton-Raphson-Algorithm`牛顿拉弗森算法求平方根
++ `recursion`
+  - `palindrome.py`判断是否是回文 divide-and-conquer（分而治之）
+  - `sub_list.py`递归生成子列表
 * `checksum` 哈希验证`sha256`摘要，验证文件完整性，运行`python3 check.py <file_path>`
 * `Merge-config-files`利用递归合并字典类型的配置文件。
 * `Monitor`监控文件系统
