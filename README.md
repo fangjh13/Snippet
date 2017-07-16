@@ -7,10 +7,12 @@
 * `parser-zongs`从两张**xlsx**表中提取数据分析 公司每天需要手动统计其实就是为了偷懒
 * `MarkDownReference` markdown语法
 * `pretty_github` 刷绿github的contributions，门面东西
-+ `binary`
++ `convert`
   - `float2bin`手动实现整数或小数转二进制算法
   - `intToStr`整数转字符串
-* `Bisection Algorithm` 二分查找算法求平方根
++ `Bisection Algorithm` 二分查找算法
+  - `bisection.py`求平方根
+  - `listSearch.py`列表搜索
 * `Newton-Raphson-Algorithm`牛顿拉弗森算法求平方根
 + `recursion`
   - `palindrome.py`判断是否是回文 divide-and-conquer（分而治之）
