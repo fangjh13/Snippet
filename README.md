@@ -17,7 +17,7 @@
 + `recursion`
   - `palindrome.py`判断是否是回文 divide-and-conquer（分而治之）
   - `sub_list.py`递归生成子列表
+  - `merge_config`利用递归合并字典类型的配置文件。
 * `checksum` 哈希验证`sha256`摘要，验证文件完整性，运行`python3 check.py <file_path>`
-* `Merge-config-files`利用递归合并字典类型的配置文件。
 * `Monitor`监控文件系统
 * `Spiral_Matrix`螺旋矩阵
