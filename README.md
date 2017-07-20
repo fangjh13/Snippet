@@ -21,3 +21,6 @@
 * `checksum` 哈希验证`sha256`摘要，验证文件完整性，运行`python3 check.py <file_path>`
 * `Monitor`监控文件系统
 * `Spiral_Matrix`螺旋矩阵
++ `Sort` 排序
+ - `selection_sort.py`选择排序
+ - `merge_sort.py`归并排序
