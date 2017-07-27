@@ -9,12 +9,20 @@
 * `parser-zongs`从两张**xlsx**表中提取数据分析 公司每天需要手动统计其实就是为了偷懒
 * `MarkDownReference` markdown语法
 * `pretty_github` 刷绿github的contributions，门面东西
-+ `binary`
++ `convert`
   - `float2bin`手动实现整数或小数转二进制算法
   - `intToStr`整数转字符串
-* `Bisection Algorithm` 二分查找算法求平方根
++ `Bisection Algorithm` 二分查找算法
+  - `bisection.py`求平方根
+  - `listSearch.py`列表搜索
 * `Newton-Raphson-Algorithm`牛顿拉弗森算法求平方根
-* `Recursion-divide-and-conquer`递归 判断是否是回文（分而治之)
++ `recursion`
+  - `palindrome.py`判断是否是回文 divide-and-conquer（分而治之）
+  - `sub_list.py`递归生成子列表
+  - `merge_config`利用递归合并字典类型的配置文件。
 * `checksum` 哈希验证`sha256`摘要，验证文件完整性，运行`python3 check.py <file_path>`
-* `Merge-config-files`利用递归合并字典类型的配置文件。
 * `Monitor`监控文件系统
+* `Spiral_Matrix`螺旋矩阵
++ `Sort` 排序
+  - `selection_sort.py`选择排序
+  - `merge_sort.py`归并排序
