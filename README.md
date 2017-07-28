@@ -24,3 +24,5 @@
 + `Sort` 排序
   - `selection_sort.py`选择排序
   - `merge_sort.py`归并排序
++ `tree` 树
+  - `treeSearch.py`二叉树遍历
