@@ -117,7 +117,7 @@ def dfs_binary_ordered(root, fc, ltfc):
 
 
 print(dfs_binary_ordered(n5, lambda x: x.get_value() == 6,
-    lambda x: x.get_value() < 6))
+                         lambda x: x.get_value() < 6))
 
 
 def bfs_binary_ordered(root, fc, ltfc):
@@ -136,9 +136,16 @@ def bfs_binary_ordered(root, fc, ltfc):
                 queue.append(temp.get_left_branch())
     return False
 
+
 print(bfs_binary_ordered(n5, lambda x: x.get_value() == 6,
-    lambda x: x.get_value() < 6))
+                         lambda x: x.get_value() < 6))
 
 
+def trace_path(node):
+    if not node.get_parent():
+        return [node.get_value()]
+    else:
+        return [node.get_value()] + trace_path(node.get_parent())
 
 
+print(trace_path(n6))
