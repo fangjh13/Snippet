@@ -31,11 +31,11 @@ class BinaryTree(object):
         return self.parent
 
     def __str__(self):
-        return self.value
+        return str(self.value)
 
 
 def dfs_binary(root, fc):
-    ''' Depth first serach '''
+    ''' Depth first search '''
     # LIFO
     stack = [root]
     while len(stack) > 0:
@@ -149,3 +149,82 @@ def trace_path(node):
 
 
 print(trace_path(n6))
+
+
+def build_decision_tree(sofar, todo):
+    if len(todo) == 0:
+        return BinaryTree(sofar)
+    withelt = build_decision_tree(sofar + todo[:1], todo[1:])
+    withoutelt = build_decision_tree(sofar, todo[1:])
+    root = BinaryTree(sofar)
+    root.set_left_branch(withelt)
+    root.set_right_branch(withoutelt)
+    return root
+
+
+
+def dfs_decision_tree(root, value_fn, constrain_fn):
+    stack = [root]
+    best = None
+    visited = 0
+    while len(stack) > 0:
+        visited += 1
+        if constrain_fn(stack[0].get_value()):
+            if not best:
+                best = stack[0]
+            elif value_fn(stack[0].get_value()) > value_fn(best.get_value()):
+                best = stack[0]
+            temp = stack.pop(0)
+            if temp.get_right_branch():
+                stack.insert(0, temp.get_right_branch())
+            if temp.get_left_branch():
+                stack.insert(0, temp.get_left_branch())
+        else:
+            stack.pop(0)
+    print('visited:', visited)
+    return best
+
+
+def bfs_decision_tree(root, value_fn, constrain_fn):
+    queue = [root]
+    best = None
+    visited = 0
+    while len(queue) > 0:
+        visited += 1
+        if constrain_fn(queue[0].get_value()):
+            if best is None:
+                best = queue[0]
+                print(best)
+            elif value_fn(queue[0].get_value()) > value_fn(best.get_value()):
+                best = queue[0]
+                print(best)
+            temp = queue.pop(0)
+            if temp.get_left_branch():
+                queue.append(temp.get_left_branch())
+            if temp.get_right_branch():
+                queue.append(temp.get_right_branch())
+        else:
+            queue.pop(0)
+    print('visited:', visited)
+    return best
+
+
+a = [6, 3]
+b = [7, 2]
+c = [8, 4]
+d = [9, 5]
+
+tree_test = build_decision_tree([], [a, b, c, d])
+
+
+def sum_values(lst):
+    return sum(i[0] for i in lst)
+
+
+def weights_below10(lst):
+    return sum(i[1] for i in lst) <= 10
+
+print(dfs_decision_tree(tree_test, sum_values, weights_below10))
+print(bfs_decision_tree(tree_test, sum_values, weights_below10))
+
+
