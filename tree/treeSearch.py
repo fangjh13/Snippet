@@ -162,7 +162,6 @@ def build_decision_tree(sofar, todo):
     return root
 
 
-
 def dfs_decision_tree(root, value_fn, constrain_fn):
     stack = [root]
     best = None
@@ -224,7 +223,29 @@ def sum_values(lst):
 def weights_below10(lst):
     return sum(i[1] for i in lst) <= 10
 
+
 print(dfs_decision_tree(tree_test, sum_values, weights_below10))
 print(bfs_decision_tree(tree_test, sum_values, weights_below10))
 
 
+def dsf_decision_implicit(to_consider, avail):
+    if to_consider == [] or avail == 0:
+        result = (0, ())
+    elif to_consider[0][1] > avail:
+        result = dsf_decision_implicit(to_consider[1:], avail)
+    else:
+        item = to_consider[0]
+        with_val, with_to_take = dsf_decision_implicit(
+            to_consider[1:], avail - item[1])
+        with_val += item[0]
+        with_to_take += (item,)
+        without_val, without_to_take = dsf_decision_implicit(to_consider[
+                                                             1:], avail)
+        if with_val < without_val:
+            result = (without_val, without_to_take)
+        else:
+            result = (with_val, with_to_take)
+    return result
+
+
+print(dsf_decision_implicit([a, b, c, d], 10))
