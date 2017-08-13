@@ -9,15 +9,20 @@ import os
 
 
 class ZhiHuCollection(object):
-    def __init__(self, collection):
+    def __init__(self, collection, cookie):
         self.url = 'https://www.zhihu.com/collection/' + str(collection)
         self.headers = {'user-agent': 'Mozilla/5.0 (X11; Linux x86_64)'}
+        # 浏览器模拟登录cookie，只需`z_c0`, 需要手动复制
+        self.cookie = dict(z_c0=cookie)
 
     def get_page(self, **kw):
-        r = requests.get(self.url, headers=self.headers, **kw)
+        ''' 获取整个页面 '''
+        r = requests.get(self.url, headers=self.headers,
+                         cookies=self.cookie, **kw)
         return r.text
 
     def get_page_count(self):
+        ''' 分析页码 '''
         mark_up = self.get_page()
         soup = BeautifulSoup(mark_up, 'lxml')
         nav = soup.find('div', class_='zm-invite-pager')
@@ -25,6 +30,7 @@ class ZhiHuCollection(object):
         return int(count)
 
     def get_page_items(self, page):
+        ''' 获取每页的问题id和第一个回答的id '''
         payload = {'page': page}
         mark_up = self.get_page(params=payload)
         soup = BeautifulSoup(mark_up, 'lxml')
@@ -48,12 +54,12 @@ class ZhiHuCollection(object):
         return rs
 
     def get_answer_pictures(self, qus_id, ans_id):
+        ''' 获取一个问题回答的所有图片地址 '''
         url = 'https://www.zhihu.com/question/{}/answer/{}'.format(
             qus_id, ans_id)
-        print(url)
-        cookie = dict(
-            z_c0="2|1:0|10:1502678061|4:z_c0|92:Mi4xX1hVWkFBQUFBQUFBRUFMbFlMazNEQ2NBQUFDRUFsVk5MWm00V1FBQjl2WkVrWkszNS1TNFZoektiYjhMb2FmYjBR|85e18f906ab23fc3ba65b46119e40702705dae755fd926981325a9c5e2f90228")
-        html = requests.get(url, headers=self.headers, cookies=cookie).text
+        print('获取回答图片并保存本地 {}'.format(url))
+        html = requests.get(url, headers=self.headers,
+                            cookies=self.cookie).text
         soup = BeautifulSoup(html, 'lxml')
         rs = []
         for i in soup.find_all('img',
@@ -62,7 +68,9 @@ class ZhiHuCollection(object):
         return rs
 
     def save_to_local(self, path, address):
-        data = requests.get(address, headers=self.headers).content
+        ''' 保存图片到本地 '''
+        data = requests.get(address, headers=self.headers,
+                            cookies=self.cookie).content
         file_name = address.rsplit('/')[-1]
         with open(os.path.join(path, file_name), 'wb') as f:
             f.write(data)
@@ -70,7 +78,7 @@ class ZhiHuCollection(object):
     def main(self):
         pages = self.get_page_count()
         path_dir = os.path.abspath(os.path.dirname(__file__))
-        for p in range(1, 3):
+        for p in range(1, pages + 1):
             items = self.get_page_items(p)
             for i in items:
                 file_target = os.path.join(path_dir, i[0])
@@ -80,8 +88,9 @@ class ZhiHuCollection(object):
                     self.save_to_local(file_target, pic)
 
 
-
-
-zhihu = ZhiHuCollection(69135664)
-# print(zhihu.get_page_items(1))
-zhihu.main()
+# example: 69135664, 102112319, 25971719, 62024183, 38624707, 123354652, 61913303, 72114548, 30256531
+if __name__ == '__main__':
+    collection_id = input('请输入收藏夹id: ')
+    cookie_z_c0 = input('模拟登录手动复制`z_c0`的cookie: ')
+    drive = ZhiHuCollection(collection_id, cookie_z_c0)
+    drive.main()
