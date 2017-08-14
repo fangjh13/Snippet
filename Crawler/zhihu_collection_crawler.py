@@ -77,6 +77,7 @@ class ZhiHuCollection(object):
 
     def main(self):
         pages = self.get_page_count()
+        print('获取总页数，一个有{}页'.format(pages))
         path_dir = os.path.abspath(os.path.dirname(__file__))
         for p in range(1, pages + 1):
             items = self.get_page_items(p)
@@ -88,7 +89,7 @@ class ZhiHuCollection(object):
                     self.save_to_local(file_target, pic)
 
 
-# example: 69135664, 102112319, 25971719, 62024183, 38624707, 123354652, 61913303, 72114548, 30256531
+# example:69135664, 102112319, 25971719, 38624707, 61913303, 72114548, 30256531
 if __name__ == '__main__':
     collection_id = input('请输入收藏夹id: ')
     cookie_z_c0 = input('模拟登录手动复制`z_c0`的cookie: ')
