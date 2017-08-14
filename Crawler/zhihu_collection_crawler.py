@@ -9,6 +9,8 @@ import os
 
 
 class ZhiHuCollection(object):
+    ''' 知乎收藏夹图片下载需要手动传入cookie '''
+
     def __init__(self, collection, cookie):
         self.url = 'https://www.zhihu.com/collection/' + str(collection)
         self.headers = {'user-agent': 'Mozilla/5.0 (X11; Linux x86_64)'}
