@@ -82,11 +82,16 @@ class ZhiHuCollection(object):
         print('获取总页数，一个有{}页'.format(pages))
         path_dir = os.path.abspath(os.path.dirname(__file__))
         for p in range(1, pages + 1):
+            print('第{}页'.format(p))
             items = self.get_page_items(p)
             for i in items:
                 file_target = os.path.join(path_dir, i[0])
-                if not os.path.exists(file_target):
-                    os.mkdir(file_target)
+                try:
+                    if not os.path.exists(file_target):
+                        os.mkdir(file_target)
+                except FileNotFoundError as e:
+                    print('创建文件夹失败 ', e)
+                    continue
                 for pic in self.get_answer_pictures(i[1], i[2]):
                     self.save_to_local(file_target, pic)
 
