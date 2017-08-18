@@ -30,4 +30,6 @@
   - `merge_sort.py`归并排序
 + `tree` 树
   - `treeSearch.py`二叉树遍历
-+ `copyFile`复制子文件夹的文件到当前目录
++ `fileHandler`
+  - `copy.py`复制子文件夹的文件到当前目录
+  - `move.py`移动当前目录下的图片到一个新的文件夹
