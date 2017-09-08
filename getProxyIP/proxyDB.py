@@ -14,7 +14,7 @@ def init_db(database):
     conn.close()
 
 
-class db(object):
+class HandlerDB(object):
     def __init__(self, database):
         self.conn = sqlite3.connect(database)
         self.cursor = self.conn.cursor()
@@ -42,6 +42,7 @@ class db(object):
 
     def clean_data(self):
         self.cursor.execute('DELETE FROM ip_pools')
+        self.conn.commit()
 
     def close(self):
         self.conn.close()
