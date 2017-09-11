@@ -36,7 +36,7 @@ class IPTool(object):
         headers['user-agent'] = random.choice(config.user_agent)
         try:
             g = requests.get('http://www.baidu.com',
-                             timeout=3,
+                             timeout=config.timeout,
                              proxies={'http': 'http://{}:{}'.format(ip, port),
                                       'https': 'https://{}:{}'.format(ip, port)})
         except BaseException as e:

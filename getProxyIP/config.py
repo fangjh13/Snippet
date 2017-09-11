@@ -1,8 +1,7 @@
 headers = {
     'connection': 'keep-alive',
     'accept-encoding': 'gzip, deflate',
-    'accept-language': 'en-US,en;q=0.8,zh-CN;q=0.6,zh;q=0.4,zh-TW;q=0.2',
-    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36'
+    'accept-language': 'en-US,en;q=0.8,zh-CN;q=0.6,zh;q=0.4,zh-TW;q=0.2'
 }
 
 user_agent = [
@@ -16,6 +15,7 @@ user_agent = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.93 Safari/537.36'
 ]
 
+# 代理网页地址和正则，如需增加，手动增加地址和正则
 url_and_RegExp = {
     'http://www.66ip.cn/nmtq.php?getnum=512&isp=0&anonymoustype=0&start=&ports=&export=&ipaddress=&area=0&proxytype=2&api=66ip': "([\d\.]+):(\d+)",
     'http://www.xicidaili.com/nn/': "<td>([\d\.]+)</td>\s*<td>(\d+)</td>",
@@ -28,7 +28,8 @@ url_and_RegExp = {
     "http://www.kxdaili.com/ipList/3.html#ip": "<tr.*>\s+<td>([\d\.]+)</td>\s+<td>([\d]+)</td>"
 }
 
+# 用于存放数据库的sqlite数据库名，自动生成在当前目录下
 database = "ProxyAddress.db"
 
-# import requests
-# print(requests.get('http://www.proxy360.cn/Region/China', headers=headers).status_code)
+# 测试代理timeout
+timeout = 6
