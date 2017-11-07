@@ -41,10 +41,20 @@ def fib4(n):
     return next(temp)
 
 
+def fib5(n):
+    r = [0, 1]
+    if n < 2:
+        return n
+    for i in range(n - 1):
+        r.append(sum(r))
+        r.pop(0)
+    return r[-1]
+
+
 # 测试 可以适当增加n
 # 结果会发现fib1是最慢的，fib3和fib4很快fib4可以无限大
 n = 10
-for f in fib1, fib2, fib3, fib4:
+for f in fib1, fib2, fib3, fib4, fib5:
     start = time.time()
     print(f.__name__, f(n), sep=':', end=':')
     print(time.time() - start)
