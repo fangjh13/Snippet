@@ -9,6 +9,8 @@ from datetime import datetime
 from collections import deque
 import re
 import time
+from bs4 import BeautifulSoup
+from lxml.html import fromstring
 
 
 def download(url, user_agent, num_retries=2):
@@ -38,6 +40,32 @@ def get_links(html, org_link):
         return urlparse(url_1).netloc == urlparse(url_2).netloc
 
     return [l for l in links if same_domain(l, org_link)]
+
+
+FIELDS = ('area', 'population', 'iso', 'country', 'capital', 'continent',
+          'tld', 'currency_code', 'currency_name', 'phone',
+          'postal_code_format', 'postal_code_regex', 'languages', 'neighbours')
+
+
+def scrape_callback_1(html):
+    soup = BeautifulSoup(html, 'lxml')
+    result = {}
+    for i in FIELDS:
+        # result[i] = soup.find('table').find(
+        #     'tr', id="places_{}__row".format(i)).find(
+        #     'td', class_="w2p_fw").text
+        result[i] = soup.select('table > tr#places_{}__row > td.w2p_fw'.format(i))[0].text
+    return result
+
+
+def scrape_callback_2(html):
+    tree = fromstring(html)
+    result = {}
+    for i in FIELDS:
+        # result[i] = tree.cssselect(
+        #     'table > tr#places_{}__row > td.w2p_fw'.format(i))[0].text_content()
+        result[i] = tree.xpath('//table/tr[@id="places_{}__row"]/td[@class="w2p_fw"]'.format(i))[0].text_content()
+    return result
 
 
 class Throttle(object):
@@ -101,7 +129,20 @@ def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, us
 
 
 if __name__ == '__main__':
-    main('http://example.webscraping.com/',
-         '/places/default/(view|index)', max_depth=3, max_download=50, delay=2)
+    html = download(
+        'http://example.webscraping.com/places/default/view/China-47', 'Mozilla')
+    for name, scrape in [('bs4', scrape_callback_1), ('lxml', scrape_callback_2)]:
+        start = time.time()
+        for i in range(1000):
+            result = scrape(html)
+            assert result['iso'] == 'CN'
+        end = time.time()
+        print(name, "{:.5f}".format(end-start))
 
-# https://bitbucket.org/wswp/code/src/9e6b82b47087c2ada0e9fdf4f5e037e151975f0f/chapter01/link_crawler3.py?at=default&fileviewer=file-view-default
+
+
+
+    # main('http://example.webscraping.com/',
+    #      '/places/default/(view|index)', max_depth=3, max_download=50, delay=2)
+
+    # https://bitbucket.org/wswp/code/src/9e6b82b47087c2ada0e9fdf4f5e037e151975f0f/chapter01/link_crawler3.py?at=default&fileviewer=file-view-default
