@@ -9,8 +9,8 @@ from datetime import datetime
 from collections import deque
 import re
 import time
-from bs4 import BeautifulSoup
-from lxml.html import fromstring
+import lxml.html
+import csv
 
 
 def download(url, user_agent, num_retries=2):
@@ -33,6 +33,10 @@ def download(url, user_agent, num_retries=2):
 def get_links(html, org_link):
     regex = re.compile(r'<a[^>]*?href=[\"\'](.*?)[\"\'].*?>', re.IGNORECASE)
     my_urljoin = partial(urljoin, org_link)
+    # handle if html is None
+    if not html:
+        return []
+
     links = map(my_urljoin, re.findall(regex, html))
     links = [link.rsplit('?', maxsplit=1)[0] for link in links]
 
@@ -42,30 +46,24 @@ def get_links(html, org_link):
     return [l for l in links if same_domain(l, org_link)]
 
 
-FIELDS = ('area', 'population', 'iso', 'country', 'capital', 'continent',
-          'tld', 'currency_code', 'currency_name', 'phone',
-          'postal_code_format', 'postal_code_regex', 'languages', 'neighbours')
+class ScrapeCallback(object):
+    def __init__(self):
+        self.writer = csv.writer(open('countries.csv', 'w'))
+        self.fields = ('area', 'population', 'iso', 'country', 'capital', 'continent',
+                       'tld', 'currency_code', 'currency_name', 'phone',
+                       'postal_code_format', 'postal_code_regex', 'languages', 'neighbours')
+        self.writer.writerow(self.fields)
 
-
-def scrape_callback_1(html):
-    soup = BeautifulSoup(html, 'lxml')
-    result = {}
-    for i in FIELDS:
-        # result[i] = soup.find('table').find(
-        #     'tr', id="places_{}__row".format(i)).find(
-        #     'td', class_="w2p_fw").text
-        result[i] = soup.select('table > tr#places_{}__row > td.w2p_fw'.format(i))[0].text
-    return result
-
-
-def scrape_callback_2(html):
-    tree = fromstring(html)
-    result = {}
-    for i in FIELDS:
-        # result[i] = tree.cssselect(
-        #     'table > tr#places_{}__row > td.w2p_fw'.format(i))[0].text_content()
-        result[i] = tree.xpath('//table/tr[@id="places_{}__row"]/td[@class="w2p_fw"]'.format(i))[0].text_content()
-    return result
+    def __call__(self, url, html):
+        # filter url and handle if html is None
+        if html and re.search(r'/view/', url):
+            tree = lxml.html.fromstring(html)
+            result = []
+            for i in self.fields:
+                r = tree.xpath('//table/tr[@id="places_{}__row"]/td[@class="w2p_fw"]'.
+                               format(i))[0].text_content()
+                result.append(r)
+            self.writer.writerow(result)
 
 
 class Throttle(object):
@@ -78,13 +76,13 @@ class Throttle(object):
     def wait(self, url):
         netloc = urlparse(url).netloc
         if self.domain.get(netloc, None) and self.delay_time > 0:
-            delta = (datetime.now() - self.domain[netloc]).seconds
-            if 0 < delta < 2:
+            delta = (datetime.now() - self.domain[netloc]).total_seconds()
+            if 0 < delta < 3:
                 time.sleep(self.delay_time)
         self.domain[netloc] = datetime.now()
 
 
-def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, user_agent='Mozilla'):
+def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, user_agent='Mozilla', callback=None):
     """
     :param url: url
     :param link_regex: filter link
@@ -104,13 +102,18 @@ def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, us
         link = crawl_queue.pop()
         # current page depth
         depth = seen[link]
-        if depth > max_depth:
+        if depth > max_depth and max_depth > 0:
             continue
 
         slow.wait(link)
         html = download(link, user_agent, retries)
         # get this page all links
         links = get_links(html, link)
+
+        # execute callback functions
+        if callback:
+            # can add callback return links
+            links.extend(callback(link, html) or [])
 
         for l in links:
             if l not in seen and re.search(link_regex, l):
@@ -129,20 +132,7 @@ def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, us
 
 
 if __name__ == '__main__':
-    html = download(
-        'http://example.webscraping.com/places/default/view/China-47', 'Mozilla')
-    for name, scrape in [('bs4', scrape_callback_1), ('lxml', scrape_callback_2)]:
-        start = time.time()
-        for i in range(1000):
-            result = scrape(html)
-            assert result['iso'] == 'CN'
-        end = time.time()
-        print(name, "{:.5f}".format(end-start))
+    main('http://example.webscraping.com/',
+         '/places/default/(view|index)', max_depth=-1, max_download=-1, delay=2, callback=ScrapeCallback())
 
-
-
-
-    # main('http://example.webscraping.com/',
-    #      '/places/default/(view|index)', max_depth=3, max_download=50, delay=2)
-
-    # https://bitbucket.org/wswp/code/src/9e6b82b47087c2ada0e9fdf4f5e037e151975f0f/chapter01/link_crawler3.py?at=default&fileviewer=file-view-default
+# https://bitbucket.org/wswp/code/src/9e6b82b47087c2ada0e9fdf4f5e037e151975f0f/chapter02/scrape_callback2.py?at=default&fileviewer=file-view-default
