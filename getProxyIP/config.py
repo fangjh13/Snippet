@@ -1,3 +1,5 @@
+#! -*- coding: utf-8 -*-
+
 headers = {
     'connection': 'keep-alive',
     'accept-encoding': 'gzip, deflate',

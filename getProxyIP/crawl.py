@@ -24,11 +24,11 @@ class IPTool(object):
             print(e)
             return
         if r.status_code != requests.codes.ok:
-            print('获取页面失败，错误代码 {}'.format(r.status_code))
+            print('获取页面{}失败，错误代码 {}'.format(self.url, r.status_code))
         else:
             ip_addrs = re.findall(self.regexp, r.text)
             if not ip_addrs:
-                print('获取不到ip，检查网址和正则')
+                print('页面{}获取不到ip，检查网址和正则'.format(self.url))
             self.ip_pools.extend(ip_addrs)
 
     def verify(self, ip, port):
@@ -59,7 +59,7 @@ class IPTool(object):
         return self.true_ip
 
     def save_to_db(self):
-        print("抓取到{}个可用ip，开始写入数据庫...".format(len(self.true_ip)))
+        print("在{}抓取到{}个可用ip，开始写入数据庫...".format(self.url, len(self.true_ip)))
         db = HandlerDB(config.database)
         db.insert_many(self.true_ip)
         db.close()

@@ -33,5 +33,5 @@
 + `fileHandler`
   - `copy.py`复制子文件夹的文件到当前目录
   - `move.py`移动当前目录下的图片到一个新的文件夹
-  - `getProxyIP`获取代理ip接口
-- `Fibonacci`实现斐波那契数列的几种方法
+* `getProxyIP`获取代理ip接口
+* `Fibonacci`实现斐波那契数列的几种方法
