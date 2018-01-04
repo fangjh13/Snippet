@@ -34,4 +34,4 @@ url_and_RegExp = {
 database = "ProxyAddress.db"
 
 # 测试代理timeout
-timeout = 6
+timeout = 3

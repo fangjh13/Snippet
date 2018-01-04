@@ -35,15 +35,23 @@ class IPTool(object):
         headers = config.headers
         headers['user-agent'] = random.choice(config.user_agent)
         try:
-            g = requests.get('http://www.baidu.com',
+            g = requests.get('https://httpbin.org/get?show_env=1',
                              timeout=config.timeout,
                              proxies={'http': 'http://{}:{}'.format(ip, port),
                                       'https': 'https://{}:{}'.format(ip, port)})
-        except BaseException as e:
+        except BaseException:
             return
-        if g.status_code == 200:
-            print('检测到可用代理 ({}, {})'.format(ip, port))
-            self.true_ip.append((ip, port))
+        if ip in g.text:
+            try:
+                h = requests.get('https://www.bing.com/',
+                                 timeout=config.timeout,
+                                 proxies={'http': 'http://{}:{}'.format(ip, port),
+                                          'https': 'https://{}:{}'.format(ip, port)})
+            except BaseException:
+                return
+            if h.status_code == requests.codes.ok:
+                print('检测到可用代理 ({}, {})'.format(ip, port))
+                self.true_ip.append((ip, port))
 
     def handler(self):
         self.crawl_page()
