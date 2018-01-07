@@ -24,26 +24,34 @@ class IPTool(object):
             print(e)
             return
         if r.status_code != requests.codes.ok:
-            print('获取页面失败，错误代码 {}'.format(r.status_code))
+            print('获取页面{}失败，错误代码 {}'.format(self.url, r.status_code))
         else:
             ip_addrs = re.findall(self.regexp, r.text)
             if not ip_addrs:
-                print('获取不到ip，检查网址和正则')
+                print('页面{}获取不到ip，检查网址和正则'.format(self.url))
             self.ip_pools.extend(ip_addrs)
 
     def verify(self, ip, port):
         headers = config.headers
         headers['user-agent'] = random.choice(config.user_agent)
         try:
-            g = requests.get('http://www.baidu.com',
+            g = requests.get('https://httpbin.org/get?show_env=1',
                              timeout=config.timeout,
                              proxies={'http': 'http://{}:{}'.format(ip, port),
                                       'https': 'https://{}:{}'.format(ip, port)})
-        except BaseException as e:
+        except BaseException:
             return
-        if g.status_code == 200:
-            print('检测到可用代理 ({}, {})'.format(ip, port))
-            self.true_ip.append((ip, port))
+        if ip in g.text:
+            try:
+                h = requests.get('https://www.bing.com/',
+                                 timeout=config.timeout,
+                                 proxies={'http': 'http://{}:{}'.format(ip, port),
+                                          'https': 'https://{}:{}'.format(ip, port)})
+            except BaseException:
+                return
+            if h.status_code == requests.codes.ok:
+                print('检测到可用代理 ({}, {})'.format(ip, port))
+                self.true_ip.append((ip, port))
 
     def handler(self):
         self.crawl_page()
@@ -59,7 +67,7 @@ class IPTool(object):
         return self.true_ip
 
     def save_to_db(self):
-        print("抓取到{}个可用ip，开始写入数据庫...".format(len(self.true_ip)))
+        print("在{}抓取到{}个可用ip，开始写入数据庫...".format(self.url, len(self.true_ip)))
         db = HandlerDB(config.database)
         db.insert_many(self.true_ip)
         db.close()
