@@ -6,6 +6,8 @@ from urllib.parse import urljoin, urlparse, urldefrag
 from functools import partial
 from datetime import datetime, timedelta
 from collections import deque
+from pymongo import MongoClient
+from bson.binary import Binary
 import re
 import time
 import lxml.html
@@ -179,6 +181,35 @@ class DiskCache(object):
         else:
             raise KeyError(url + ' does not exists')
 
+
+class MongoCache(object):
+    """save cache into MongoDB"""
+
+    def __init__(self, client=None, expires=timedelta(days=30)):
+        self.client = client if client else MongoClient(
+            host='localhost', port=27017)
+        self.db = self.client['cache']
+        # create expired index
+        self.db.webpage.create_index('timestamp',
+                                     expireAfterSeconds=expires.total_seconds())
+
+    def __setitem__(self, url, result):
+        """save value for this url"""
+        save_data = {
+            'result': Binary(zlib.compress(pickle.dumps(result))),
+            'timestamp': datetime.utcnow()}
+        self.db.webpage.update_one({'_id': url},
+                                   {'$set': save_data},
+                                   upsert=True)
+
+    def __getitem__(self, url):
+        """load value at this url"""
+        r = self.db.webpage.find_one({'_id': url})
+        if r:
+            return pickle.loads(zlib.decompress(r['result']))
+        else:
+            raise KeyError(url + ' does not exists')
+
     def has_expired(self, timestamp):
         return datetime.now() > self.expires + timestamp
 
@@ -234,6 +265,6 @@ def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, us
 
 if __name__ == '__main__':
     main('http://example.webscraping.com/',
-         '/places/default/(view|index)', max_depth=-1, max_download=-1, delay=2, callback=ScrapeCallback(), cache=DiskCache('cache_folder'))
+         '/places/default/(view|index)', max_depth=-1, max_download=-1, delay=2, callback=ScrapeCallback(), cache=MongoCache())
 
 # https://bitbucket.org/wswp/code/src/9e6b82b47087c2ada0e9fdf4f5e037e151975f0f/chapter02/scrape_callback2.py?at=default&fileviewer=file-view-default
