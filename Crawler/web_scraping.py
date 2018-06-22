@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from collections import deque
 from pymongo import MongoClient
 from bson.binary import Binary
+from zipfile import ZipFile
+from io import BytesIO, TextIOWrapper
 import re
 import time
 import lxml.html
@@ -65,6 +67,7 @@ class Download(object):
                 # html is not none decode
                 html = html.decode('utf-8')
         except Exception as e:
+            print('Exception: {}'.format(str(e)))
             if num_retries > 0:
                 if hasattr(e, 'code') and 500 <= e.code < 600:
                     return self.download(url, num_retries - 1)
@@ -109,6 +112,28 @@ class ScrapeCallback(object):
                     '''.format(i))[0].text_content()
                 result.append(r)
             self.writer.writerow(result)
+
+
+class AlexaCallback(object):
+    """ download Alexa websites may need cross GFW """
+
+    def __init__(self, max_urls=20):
+        self.max_urls = max_urls
+        self.seed_url = 'http://s3.amazonaws.com/alexa-static/top-1m.csv.zip'
+
+    def __call__(self, url, data):
+        if url == self.seed_url:
+            with ZipFile(BytesIO(data)) as z:
+                filename = z.namelist()[0]
+                urls = []
+                n = 0
+                for _, website in csv.reader(TextIOWrapper(z.open(filename))):
+                    url = 'https://' + website
+                    urls.append(url)
+                    n += 1
+                    if n >= self.max_urls:
+                        break
+            return urls
 
 
 class Throttle(object):
@@ -232,15 +257,14 @@ def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, us
     d = Download(user_agent, delay, retries, cache)
 
     while crawl_queue:
-        link = crawl_queue.pop()
+        link = crawl_queue.popleft()
         # current page depth
         depth = seen[link]
         if depth > max_depth and max_depth > 0:
             continue
 
         html = d(link)
-        # get this page all links
-        links = get_links(html, link)
+        links = []
 
         # execute callback functions
         if callback:
@@ -264,7 +288,8 @@ def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, us
 
 
 if __name__ == '__main__':
-    main('http://example.webscraping.com/',
-         '/places/default/(view|index)', max_depth=-1, max_download=-1, delay=2, callback=ScrapeCallback(), cache=MongoCache())
+    # main('http://example.webscraping.com/',
+    #      '/places/default/(view|index)', max_depth=-1, max_download=-1, delay=2, callback=ScrapeCallback(), cache=MongoCache())
 
-# https://bitbucket.org/wswp/code/src/9e6b82b47087c2ada0e9fdf4f5e037e151975f0f/chapter02/scrape_callback2.py?at=default&fileviewer=file-view-default
+    alexa = AlexaCallback()
+    main(alexa.seed_url, '', max_depth=-1, max_download=-1, delay=2, callback=alexa, cache=None)
