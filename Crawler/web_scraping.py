@@ -10,6 +10,7 @@ from pymongo import MongoClient
 from bson.binary import Binary
 from zipfile import ZipFile
 from io import BytesIO, TextIOWrapper
+from threading import Thread
 import re
 import time
 import lxml.html
@@ -60,14 +61,14 @@ class Download(object):
         try:
             self.throttle.wait(url)
             print('Downloading ', url)
-            response = urlopen(request)
+            response = urlopen(request, timeout=3)
             status_code = response.code
             html = response.read()
             if html:
                 # html is not none decode
                 html = html.decode('utf-8')
         except Exception as e:
-            print('Exception: {}'.format(str(e)))
+            print('Exception: {} url: {}'.format(str(e), url))
             if num_retries > 0:
                 if hasattr(e, 'code') and 500 <= e.code < 600:
                     return self.download(url, num_retries - 1)
@@ -128,7 +129,7 @@ class AlexaCallback(object):
                 urls = []
                 n = 0
                 for _, website in csv.reader(TextIOWrapper(z.open(filename))):
-                    url = 'https://' + website
+                    url = 'http://' + website
                     urls.append(url)
                     n += 1
                     if n >= self.max_urls:
@@ -286,10 +287,41 @@ def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, us
     # print(seen)
     # print(downloaded)
 
+def thread_crawler(seed_url, max_threads=10, callback=None):
+    # the queue of URL's that still need to be crawled
+    crawl_queue = [seed_url]
+
+    d = Download(user_agent='Mozilla')
+
+    # process worker
+    def process_queue():
+        while True:
+            try:
+                url = crawl_queue.pop()
+            except IndexError:
+                break
+            html = d(url)
+            if callback:
+                links = callback(url, html)
+                if links:
+                    crawl_queue.extend(links)
+
+    threads = []
+    while threads or crawl_queue:
+        for t in threads:
+            if not t.is_alive():
+                # remove the stopped thread
+                threads.remove(t)
+        while len(threads) < max_threads and crawl_queue:
+            thread = Thread(target=process_queue, args=())
+            thread.daemon = True
+            thread.start()
+            threads.append(thread)
+        # all threads have been processed
+        # sleep temporarily so CPU can focus execution elsewhere
+        time.sleep(1)
+
 
 if __name__ == '__main__':
-    # main('http://example.webscraping.com/',
-    #      '/places/default/(view|index)', max_depth=-1, max_download=-1, delay=2, callback=ScrapeCallback(), cache=MongoCache())
-
     alexa = AlexaCallback()
-    main(alexa.seed_url, '', max_depth=-1, max_download=-1, delay=2, callback=alexa, cache=None)
+    thread_crawler(alexa.seed_url, max_threads=10, callback=alexa)
