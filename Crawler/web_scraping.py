@@ -6,11 +6,12 @@ from urllib.parse import urljoin, urlparse, urldefrag
 from functools import partial
 from datetime import datetime, timedelta
 from collections import deque
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
 from bson.binary import Binary
 from zipfile import ZipFile
 from io import BytesIO, TextIOWrapper
 from threading import Thread
+from multiprocessing import Process, cpu_count
 import re
 import time
 import lxml.html
@@ -118,7 +119,7 @@ class ScrapeCallback(object):
 class AlexaCallback(object):
     """ download Alexa websites may need cross GFW """
 
-    def __init__(self, max_urls=20):
+    def __init__(self, max_urls=40):
         self.max_urls = max_urls
         self.seed_url = 'http://s3.amazonaws.com/alexa-static/top-1m.csv.zip'
 
@@ -240,6 +241,58 @@ class MongoCache(object):
         return datetime.now() > self.expires + timestamp
 
 
+class MongoQueue:
+    # possible states of a download
+    OUTSTANDING, PROCESSING, COMPLETE = range(3)
+
+    def __init__(self, client=None, timeout=300):
+        self.client = MongoClient() if client is None else client
+        self.db = self.client.cache
+        self.timeout = timeout
+
+    def __bool__(self):
+        """ Return True if there are more jobs to process """
+        record = self.db.crawl_queue.find_one(
+            {'status': {'$ne': self.COMPLETE}}
+        )
+        return True if record else False
+
+    def push(self, url):
+        """ add new URL to queue if does not exist """
+        try:
+            self.db.crawl_queue.insert_one(
+                {'_id': url, 'status': self.OUTSTANDING}
+            )
+        except errors.DuplicateKeyError:
+            pass
+
+    def pop(self):
+        """ Get an outstanding URL from the queue and set its
+            status to processing. If the queue is empty a KeyError
+            exception is raised """
+        record = self.db.crawl_queue.find_one_and_update(
+            {'status': self.OUTSTANDING},
+            {'$set': {'status': self.PROCESSING, 'timestamp': datetime.now()}}
+        )
+        if record:
+            return record['_id']
+        else:
+            self.repair()
+            raise KeyError()
+
+    def complete(self, url):
+        self.db.crawl_queue.update(
+            {'_id': url}, {'$set': {'status': self.COMPLETE}})
+
+    def repair(self):
+        record = self.db.crawl_queue.update_many(
+            {'timestamp': {'$lt': datetime.now() - timedelta(seconds=self.timeout)},
+             'status': {'$ne': self.COMPLETE}},
+            {'$set': {'status': self.OUTSTANDING}})
+        if record.modified_count:
+            print('Released: {} urls'.format(record.modified_count))
+
+
 def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, user_agent='Mozilla', cache=None, callback=None):
     """
     :param url: url
@@ -284,12 +337,11 @@ def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, us
         if downloaded == max_download:
             break
 
-    # print(seen)
-    # print(downloaded)
 
 def thread_crawler(seed_url, max_threads=10, callback=None):
     # the queue of URL's that still need to be crawled
-    crawl_queue = [seed_url]
+    crawl_queue = MongoQueue(timeout=300)
+    crawl_queue.push(seed_url)
 
     d = Download(user_agent='Mozilla')
 
@@ -298,13 +350,16 @@ def thread_crawler(seed_url, max_threads=10, callback=None):
         while True:
             try:
                 url = crawl_queue.pop()
-            except IndexError:
+            except KeyError:
                 break
-            html = d(url)
-            if callback:
-                links = callback(url, html)
-                if links:
-                    crawl_queue.extend(links)
+            else:
+                html = d(url)
+                if callback:
+                    links = callback(url, html)
+                    if links:
+                        for URL in links:
+                            crawl_queue.push(URL)
+                crawl_queue.complete(url)
 
     threads = []
     while threads or crawl_queue:
@@ -322,6 +377,19 @@ def thread_crawler(seed_url, max_threads=10, callback=None):
         time.sleep(1)
 
 
+def multiprocess_crawl(url, max_threads, callback):
+    cpus = cpu_count()
+    print('Starting {} process'.format(cpus))
+    processes = []
+    for i in range(cpus):
+        p = Process(target=thread_crawler, args=[url, max_threads, callback])
+        p.start()
+        processes.append(p)
+    # wait for processes to complete
+    for p in processes:
+        p.join()
+
+
 if __name__ == '__main__':
     alexa = AlexaCallback()
-    thread_crawler(alexa.seed_url, max_threads=10, callback=alexa)
+    multiprocess_crawl(alexa.seed_url, max_threads=10, callback=alexa)
