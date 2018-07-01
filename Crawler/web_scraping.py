@@ -19,6 +19,12 @@ import csv
 import os
 import pickle
 import zlib
+import sys
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWebKit import *
+from PyQt5.QtWebKitWidgets import *
 
 
 class Download(object):
@@ -293,6 +299,67 @@ class MongoQueue:
             print('Released: {} urls'.format(record.modified_count))
 
 
+class BrowserRender(QWebView):
+    def __init__(self, show=True):
+        self.app = QApplication(sys.argv)
+        QWebView.__init__(self)
+        if show:
+            self.show()
+
+    def download(self, url, timeout=60):
+        """ wait for download to complete and return result """
+        loop = QEventLoop()
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(loop.quit)
+        self.loadFinished.connect(loop.quit)
+        self.load(QUrl(url))
+        timer.start(timeout * 1000)
+
+        loop.exec_()  # delay here until download finished
+
+        if timer.isActive():
+            # downloaded successfully
+            timer.stop()
+            return self.html()
+        else:
+            # timeout
+            print('Request timeout: ' + url)
+
+    def html(self):
+        """Shortcut to return the current HTML"""
+        return self.page().mainFrame().toHtml()
+
+    def find(self, pattern):
+        """Find all elements that match the pattern"""
+        return self.page().mainFrame().findAllElements(pattern)
+
+    def attr(self, pattern, name, value):
+        """set attribute for matching elements"""
+        for e in self.find(pattern):
+            e.setAttribute(name, value)
+
+    def text(self, pattern, value):
+        """set attribute for matching elements"""
+        for e in self.find(pattern):
+            e.setPlainText(value)
+
+    def click(self, pattern):
+        """click matching elements"""
+        for e in self.find(pattern):
+            e.evaluateJavaScript("this.click()")
+
+    def wait_load(self, pattern, timeout=60):
+        """wait until pattern is found and return matches"""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            self.app.processEvents()
+            matches = self.find(pattern)
+            if matches:
+                return matches
+        print('wait load timed out')
+
+
 def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, user_agent='Mozilla', cache=None, callback=None):
     """
     :param url: url
@@ -391,5 +458,11 @@ def multiprocess_crawl(url, max_threads, callback):
 
 
 if __name__ == '__main__':
-    alexa = AlexaCallback()
-    multiprocess_crawl(alexa.seed_url, max_threads=10, callback=alexa)
+    br = BrowserRender()
+    br.download('http://example.webscraping.com/places/default/search')
+    br.attr('#search_term', 'value', '.')
+    br.text('#page_size option:checked', '1000')
+    br.click('#search')
+    elements = br.wait_load('#results a')
+    contries = [e.toPlainText().strip() for e in elements]
+    print(contries)
