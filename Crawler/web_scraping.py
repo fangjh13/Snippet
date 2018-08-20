@@ -6,8 +6,12 @@ from urllib.parse import urljoin, urlparse, urldefrag
 from functools import partial
 from datetime import datetime, timedelta
 from collections import deque
-from pymongo import MongoClient
+from pymongo import MongoClient, errors
 from bson.binary import Binary
+from zipfile import ZipFile
+from io import BytesIO, TextIOWrapper
+from threading import Thread
+from multiprocessing import Process, cpu_count
 import re
 import time
 import lxml.html
@@ -15,6 +19,12 @@ import csv
 import os
 import pickle
 import zlib
+import sys
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+from PyQt5.QtWebKit import *
+from PyQt5.QtWebKitWidgets import *
 
 
 class Download(object):
@@ -58,13 +68,14 @@ class Download(object):
         try:
             self.throttle.wait(url)
             print('Downloading ', url)
-            response = urlopen(request)
+            response = urlopen(request, timeout=3)
             status_code = response.code
             html = response.read()
             if html:
                 # html is not none decode
                 html = html.decode('utf-8')
         except Exception as e:
+            print('Exception: {} url: {}'.format(str(e), url))
             if num_retries > 0:
                 if hasattr(e, 'code') and 500 <= e.code < 600:
                     return self.download(url, num_retries - 1)
@@ -109,6 +120,28 @@ class ScrapeCallback(object):
                     '''.format(i))[0].text_content()
                 result.append(r)
             self.writer.writerow(result)
+
+
+class AlexaCallback(object):
+    """ download Alexa websites may need cross GFW """
+
+    def __init__(self, max_urls=40):
+        self.max_urls = max_urls
+        self.seed_url = 'http://s3.amazonaws.com/alexa-static/top-1m.csv.zip'
+
+    def __call__(self, url, data):
+        if url == self.seed_url:
+            with ZipFile(BytesIO(data)) as z:
+                filename = z.namelist()[0]
+                urls = []
+                n = 0
+                for _, website in csv.reader(TextIOWrapper(z.open(filename))):
+                    url = 'http://' + website
+                    urls.append(url)
+                    n += 1
+                    if n >= self.max_urls:
+                        break
+            return urls
 
 
 class Throttle(object):
@@ -214,6 +247,119 @@ class MongoCache(object):
         return datetime.now() > self.expires + timestamp
 
 
+class MongoQueue:
+    # possible states of a download
+    OUTSTANDING, PROCESSING, COMPLETE = range(3)
+
+    def __init__(self, client=None, timeout=300):
+        self.client = MongoClient() if client is None else client
+        self.db = self.client.cache
+        self.timeout = timeout
+
+    def __bool__(self):
+        """ Return True if there are more jobs to process """
+        record = self.db.crawl_queue.find_one(
+            {'status': {'$ne': self.COMPLETE}}
+        )
+        return True if record else False
+
+    def push(self, url):
+        """ add new URL to queue if does not exist """
+        try:
+            self.db.crawl_queue.insert_one(
+                {'_id': url, 'status': self.OUTSTANDING}
+            )
+        except errors.DuplicateKeyError:
+            pass
+
+    def pop(self):
+        """ Get an outstanding URL from the queue and set its
+            status to processing. If the queue is empty a KeyError
+            exception is raised """
+        record = self.db.crawl_queue.find_one_and_update(
+            {'status': self.OUTSTANDING},
+            {'$set': {'status': self.PROCESSING, 'timestamp': datetime.now()}}
+        )
+        if record:
+            return record['_id']
+        else:
+            self.repair()
+            raise KeyError()
+
+    def complete(self, url):
+        self.db.crawl_queue.update(
+            {'_id': url}, {'$set': {'status': self.COMPLETE}})
+
+    def repair(self):
+        record = self.db.crawl_queue.update_many(
+            {'timestamp': {'$lt': datetime.now() - timedelta(seconds=self.timeout)},
+             'status': {'$ne': self.COMPLETE}},
+            {'$set': {'status': self.OUTSTANDING}})
+        if record.modified_count:
+            print('Released: {} urls'.format(record.modified_count))
+
+
+class BrowserRender(QWebView):
+    def __init__(self, show=True):
+        self.app = QApplication(sys.argv)
+        QWebView.__init__(self)
+        if show:
+            self.show()
+
+    def download(self, url, timeout=60):
+        """ wait for download to complete and return result """
+        loop = QEventLoop()
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(loop.quit)
+        self.loadFinished.connect(loop.quit)
+        self.load(QUrl(url))
+        timer.start(timeout * 1000)
+
+        loop.exec_()  # delay here until download finished
+
+        if timer.isActive():
+            # downloaded successfully
+            timer.stop()
+            return self.html()
+        else:
+            # timeout
+            print('Request timeout: ' + url)
+
+    def html(self):
+        """Shortcut to return the current HTML"""
+        return self.page().mainFrame().toHtml()
+
+    def find(self, pattern):
+        """Find all elements that match the pattern"""
+        return self.page().mainFrame().findAllElements(pattern)
+
+    def attr(self, pattern, name, value):
+        """set attribute for matching elements"""
+        for e in self.find(pattern):
+            e.setAttribute(name, value)
+
+    def text(self, pattern, value):
+        """set attribute for matching elements"""
+        for e in self.find(pattern):
+            e.setPlainText(value)
+
+    def click(self, pattern):
+        """click matching elements"""
+        for e in self.find(pattern):
+            e.evaluateJavaScript("this.click()")
+
+    def wait_load(self, pattern, timeout=60):
+        """wait until pattern is found and return matches"""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            self.app.processEvents()
+            matches = self.find(pattern)
+            if matches:
+                return matches
+        print('wait load timed out')
+
+
 def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, user_agent='Mozilla', cache=None, callback=None):
     """
     :param url: url
@@ -232,15 +378,14 @@ def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, us
     d = Download(user_agent, delay, retries, cache)
 
     while crawl_queue:
-        link = crawl_queue.pop()
+        link = crawl_queue.popleft()
         # current page depth
         depth = seen[link]
         if depth > max_depth and max_depth > 0:
             continue
 
         html = d(link)
-        # get this page all links
-        links = get_links(html, link)
+        links = []
 
         # execute callback functions
         if callback:
@@ -259,12 +404,65 @@ def main(url, link_regex, delay=-1, retries=2, max_depth=-1, max_download=-1, us
         if downloaded == max_download:
             break
 
-    # print(seen)
-    # print(downloaded)
+
+def thread_crawler(seed_url, max_threads=10, callback=None):
+    # the queue of URL's that still need to be crawled
+    crawl_queue = MongoQueue(timeout=300)
+    crawl_queue.push(seed_url)
+
+    d = Download(user_agent='Mozilla')
+
+    # process worker
+    def process_queue():
+        while True:
+            try:
+                url = crawl_queue.pop()
+            except KeyError:
+                break
+            else:
+                html = d(url)
+                if callback:
+                    links = callback(url, html)
+                    if links:
+                        for URL in links:
+                            crawl_queue.push(URL)
+                crawl_queue.complete(url)
+
+    threads = []
+    while threads or crawl_queue:
+        for t in threads:
+            if not t.is_alive():
+                # remove the stopped thread
+                threads.remove(t)
+        while len(threads) < max_threads and crawl_queue:
+            thread = Thread(target=process_queue, args=())
+            thread.daemon = True
+            thread.start()
+            threads.append(thread)
+        # all threads have been processed
+        # sleep temporarily so CPU can focus execution elsewhere
+        time.sleep(1)
+
+
+def multiprocess_crawl(url, max_threads, callback):
+    cpus = cpu_count()
+    print('Starting {} process'.format(cpus))
+    processes = []
+    for i in range(cpus):
+        p = Process(target=thread_crawler, args=[url, max_threads, callback])
+        p.start()
+        processes.append(p)
+    # wait for processes to complete
+    for p in processes:
+        p.join()
 
 
 if __name__ == '__main__':
-    main('http://example.webscraping.com/',
-         '/places/default/(view|index)', max_depth=-1, max_download=-1, delay=2, callback=ScrapeCallback(), cache=MongoCache())
-
-# https://bitbucket.org/wswp/code/src/9e6b82b47087c2ada0e9fdf4f5e037e151975f0f/chapter02/scrape_callback2.py?at=default&fileviewer=file-view-default
+    br = BrowserRender()
+    br.download('http://example.webscraping.com/places/default/search')
+    br.attr('#search_term', 'value', '.')
+    br.text('#page_size option:checked', '1000')
+    br.click('#search')
+    elements = br.wait_load('#results a')
+    contries = [e.toPlainText().strip() for e in elements]
+    print(contries)
