@@ -38,3 +38,4 @@
 * `Fibonacci`实现斐波那契数列的几种方法
 * `concurrent-and-parallel`多进程多线程示例
 * `ssh-login`配置密码实现ssh登录
+* `JD-monitor`京东商品价格监控，使用[server酱](http://sc.ftqq.com/3.version)推送到微信
